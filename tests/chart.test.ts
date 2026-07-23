@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { monotonePath, seriesPath } from "../src/chart";
+import { clampTooltipCenter, monotonePath, seriesPath } from "../src/chart";
 import type { ProviderForecast } from "../src/types";
 
 describe("chart geometry", () => {
+  it("keeps a tooltip inside both chart edges", () => {
+    expect(clampTooltipCenter(20, 500, 360)).toBe(192);
+    expect(clampTooltipCenter(250, 500, 360)).toBe(250);
+    expect(clampTooltipCenter(480, 500, 360)).toBe(308);
+  });
+
   it("generates a continuous monotone cubic path", () => {
     const path = monotonePath([{ x: 0, y: 100 }, { x: 10, y: 0 }, { x: 20, y: 100 }]);
     expect(path).toMatch(/^M 0.00 100.00 C /);

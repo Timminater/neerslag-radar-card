@@ -26,6 +26,18 @@ export function monotonePath(points: Array<{ x: number; y: number }>): string {
 
 export const PLOT = { width: 600, height: 220, left: 46, right: 12, top: 18, bottom: 34 };
 
+export function clampTooltipCenter(
+  anchor: number,
+  containerWidth: number,
+  tooltipWidth: number,
+  padding = 12,
+): number {
+  const halfWidth = tooltipWidth / 2;
+  const minimum = padding + halfWidth;
+  const maximum = containerWidth - padding - halfWidth;
+  return Math.max(minimum, Math.min(maximum, anchor));
+}
+
 export function seriesPath(provider: ProviderForecast, range: ChartRange): string {
   const width = PLOT.width - PLOT.left - PLOT.right;
   const height = PLOT.height - PLOT.top - PLOT.bottom;

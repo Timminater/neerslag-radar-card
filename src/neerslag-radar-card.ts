@@ -1,5 +1,5 @@
 import { LitElement, css, html, svg } from "lit";
-import { PLOT, seriesPath } from "./chart";
+import { clampTooltipCenter, PLOT, seriesPath } from "./chart";
 import { activeProviders, chartRange, collectLocations, tooltipAt, validateConfig } from "./data";
 import { t } from "./i18n";
 import "./editor";
@@ -60,7 +60,7 @@ export class NeerslagRadarCard extends LitElement {
       position: absolute;
       z-index: 1;
       top: 24px;
-      left: var(--tooltip-x);
+      left: 0;
       width: max-content;
       max-width: min(360px, calc(100% - 24px));
       padding: 7px 9px;
@@ -72,9 +72,9 @@ export class NeerslagRadarCard extends LitElement {
       font-size: .78rem;
       line-height: 1.35;
       pointer-events: none;
-      transform: translateX(10px);
+      transform: translateX(-50%);
+      visibility: hidden;
     }
-    .tooltip.left { transform: translateX(calc(-100% - 10px)); }
     .tooltip div + div { margin-top: 3px; }
     .warning { color: var(--warning-color, #f57c00); font-size: .78rem; margin: 4px 0 0; }
     .empty { color: var(--secondary-text-color); padding: 16px 0; }
@@ -91,6 +91,21 @@ export class NeerslagRadarCard extends LitElement {
     return { type: "custom:neerslag-radar-card", location_id: location?.id ?? "" };
   }
   static getEntitySuggestion(): undefined { return undefined; }
+
+  protected updated(): void {
+    const wrapper = this.renderRoot.querySelector<HTMLElement>(".chart-wrap");
+    const tooltip = this.renderRoot.querySelector<HTMLElement>(".tooltip");
+    if (!wrapper || !tooltip) return;
+    const anchorRatio = Number(tooltip.dataset.anchorRatio);
+    if (!Number.isFinite(anchorRatio)) return;
+    const center = clampTooltipCenter(
+      anchorRatio * wrapper.clientWidth,
+      wrapper.clientWidth,
+      tooltip.offsetWidth,
+    );
+    tooltip.style.left = `${center}px`;
+    tooltip.style.visibility = "visible";
+  }
 
   private locale(): string { return this.hass?.locale?.language ?? this.hass?.config.language ?? "en"; }
   private timeZone(): string | undefined { return this.hass?.config.time_zone; }
@@ -133,7 +148,6 @@ export class NeerslagRadarCard extends LitElement {
     const ticks = [0, .5, 1];
     const shown = providers.filter((provider) => !this.hiddenProviders.has(this.providerKey(provider)));
     const cursorX = this.hover ? PLOT.left + ((this.hover.timestamp - range.start) / (range.end - range.start)) * plotWidth : undefined;
-    const tooltipLeft = cursorX !== undefined && cursorX > PLOT.width * .58;
     return html`
       <div class="legend" aria-label=${t(language, "intensity")}>
         ${providers.map((provider) => {
@@ -158,8 +172,8 @@ export class NeerslagRadarCard extends LitElement {
         ${cursorX !== undefined ? svg`<line class="cursor" x1=${cursorX} x2=${cursorX} y1=${PLOT.top} y2=${PLOT.top + plotHeight} />` : null}
       </svg>
       ${this.hover?.items.length && cursorX !== undefined ? html`<div
-        class=${`tooltip${tooltipLeft ? " left" : ""}`}
-        style=${`--tooltip-x:${(cursorX / PLOT.width) * 100}%`}
+        class="tooltip"
+        data-anchor-ratio=${cursorX / PLOT.width}
         role="status">
         ${this.hover.items.map((item) => html`<div><strong>${providerName(item.provider)}</strong>: ${this.formatTime(item.point.start)}–${this.formatTime(item.point.end)} · ${this.formatNumber(item.point.precipitation_intensity)} ${t(language, "intensityUnit")} · ${this.formatNumber(item.point.precipitation)} mm</div>`)}</div>` : null}
       </div>`;
