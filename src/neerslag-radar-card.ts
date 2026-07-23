@@ -48,6 +48,7 @@ export class NeerslagRadarCard extends LitElement {
     .legend button { display: inline-flex; align-items: center; gap: 5px; color: var(--primary-text-color); border: 0; background: transparent; padding: 2px; cursor: pointer; font: inherit; font-size: .8rem; }
     .legend button[aria-pressed="false"] { opacity: .45; text-decoration: line-through; }
     .swatch { width: 13px; height: 3px; background: var(--series-color); border-radius: 3px; }
+    .chart-wrap { position: relative; }
     .chart { width: 100%; display: block; outline: none; touch-action: pan-y; }
     .grid { stroke: var(--divider-color, #d0d0d0); stroke-opacity: .65; stroke-width: 1; }
     .axis, .tick { fill: var(--secondary-text-color); font-size: 10px; }
@@ -55,11 +56,29 @@ export class NeerslagRadarCard extends LitElement {
     path.series { fill: none; stroke: var(--series-color); stroke-width: 2.5; vector-effect: non-scaling-stroke; stroke-linecap: round; stroke-linejoin: round; }
     path.unavailable { stroke-dasharray: 5 4; opacity: .56; }
     .cursor { stroke: var(--secondary-text-color); stroke-width: 1; stroke-dasharray: 3 3; }
-    .tooltip { position: relative; margin: 2px 0 0 46px; padding: 7px 9px; border-radius: 6px; background: var(--secondary-background-color, rgba(127,127,127,.14)); color: var(--primary-text-color); font-size: .78rem; }
+    .tooltip {
+      position: absolute;
+      z-index: 1;
+      top: 24px;
+      left: var(--tooltip-x);
+      width: max-content;
+      max-width: min(360px, calc(100% - 24px));
+      padding: 7px 9px;
+      border: 1px solid var(--divider-color, rgba(127,127,127,.3));
+      border-radius: 6px;
+      background: var(--card-background-color, var(--ha-card-background, #fff));
+      box-shadow: 0 2px 8px rgba(0, 0, 0, .22);
+      color: var(--primary-text-color);
+      font-size: .78rem;
+      line-height: 1.35;
+      pointer-events: none;
+      transform: translateX(10px);
+    }
+    .tooltip.left { transform: translateX(calc(-100% - 10px)); }
     .tooltip div + div { margin-top: 3px; }
     .warning { color: var(--warning-color, #f57c00); font-size: .78rem; margin: 4px 0 0; }
     .empty { color: var(--secondary-text-color); padding: 16px 0; }
-    @media (max-width: 400px) { .content { padding-inline: 10px; } .tooltip { margin-left: 38px; } }
+    @media (max-width: 400px) { .content { padding-inline: 10px; } }
   `;
 
   setConfig(config: RadarConfig): void { validateConfig(config); this.config = { ...config }; }
@@ -114,6 +133,7 @@ export class NeerslagRadarCard extends LitElement {
     const ticks = [0, .5, 1];
     const shown = providers.filter((provider) => !this.hiddenProviders.has(this.providerKey(provider)));
     const cursorX = this.hover ? PLOT.left + ((this.hover.timestamp - range.start) / (range.end - range.start)) * plotWidth : undefined;
+    const tooltipLeft = cursorX !== undefined && cursorX > PLOT.width * .58;
     return html`
       <div class="legend" aria-label=${t(language, "intensity")}>
         ${providers.map((provider) => {
@@ -124,6 +144,7 @@ export class NeerslagRadarCard extends LitElement {
           </button>`;
         })}
       </div>
+      <div class="chart-wrap">
       <svg class="chart" viewBox="0 0 ${PLOT.width} ${PLOT.height}" role="img" tabindex="0"
         aria-label=${t(language, "intensity")}
         @pointermove=${(event: PointerEvent) => this.setHover(event, range, shown)}
@@ -136,8 +157,12 @@ export class NeerslagRadarCard extends LitElement {
         ${shown.map((provider) => svg`<path class="series ${provider.unavailable ? "unavailable" : ""}" style=${`--series-color:${providerColor(provider.provider)}`} d=${seriesPath(provider, range)} />`)}
         ${cursorX !== undefined ? svg`<line class="cursor" x1=${cursorX} x2=${cursorX} y1=${PLOT.top} y2=${PLOT.top + plotHeight} />` : null}
       </svg>
-      ${this.hover?.items.length ? html`<div class="tooltip" role="status">
-        ${this.hover.items.map((item) => html`<div><strong>${providerName(item.provider)}</strong>: ${this.formatTime(item.point.start)}–${this.formatTime(item.point.end)} · ${this.formatNumber(item.point.precipitation_intensity)} ${t(language, "intensityUnit")} · ${this.formatNumber(item.point.precipitation)} mm</div>`)}</div>` : null}`;
+      ${this.hover?.items.length && cursorX !== undefined ? html`<div
+        class=${`tooltip${tooltipLeft ? " left" : ""}`}
+        style=${`--tooltip-x:${(cursorX / PLOT.width) * 100}%`}
+        role="status">
+        ${this.hover.items.map((item) => html`<div><strong>${providerName(item.provider)}</strong>: ${this.formatTime(item.point.start)}–${this.formatTime(item.point.end)} · ${this.formatNumber(item.point.precipitation_intensity)} ${t(language, "intensityUnit")} · ${this.formatNumber(item.point.precipitation)} mm</div>`)}</div>` : null}
+      </div>`;
   }
 
   render() {
